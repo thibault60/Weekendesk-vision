@@ -115,20 +115,23 @@ def parse_date_label(label: str) -> pd.Timestamp | None:
         return None
 
 
-def load_xls(file) -> pd.DataFrame | None:
+def load_csv(file) -> pd.DataFrame | None:
     """
-    Parse Tableau-style export:
+    Parse Tableau-style CSV export:
       Columns: Dimension 1 | Date | Measure Names | Measure Values
     Filters on Dimension 1 == 'seo', pivots Measure Names.
     """
     try:
-        raw = pd.read_excel(file, engine="openpyxl")
-    except Exception:
+        raw = pd.read_csv(file, sep=None, engine="python", encoding="utf-8")
+    except UnicodeDecodeError:
         try:
-            raw = pd.read_excel(file, engine="xlrd")
+            raw = pd.read_csv(file, sep=None, engine="python", encoding="latin-1")
         except Exception as e:
             st.error(f"Impossible de lire le fichier : {e}")
             return None
+    except Exception as e:
+        st.error(f"Impossible de lire le fichier : {e}")
+        return None
 
     raw.columns = [str(c).strip() for c in raw.columns]
 
@@ -205,8 +208,8 @@ with st.sidebar:
     st.markdown("---")
 
     uploaded_file = st.file_uploader(
-        "📂 Importer le fichier XLS / XLSX",
-        type=["xls", "xlsx"],
+        "📂 Importer le fichier CSV",
+        type=["csv"],
         help="Format attendu : Dimension 1 | Date | Measure Names | Measure Values",
     )
 
@@ -218,7 +221,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.caption("Données clics SEO : statiques | Business : fichier XLS")
+    st.caption("Données clics SEO : statiques | Business : fichier CSV")
     st.caption("Traitement 100% local – aucune donnée envoyée.")
 
 
@@ -233,7 +236,7 @@ merged   = None
 
 if uploaded_file:
     with st.spinner("Chargement du fichier…"):
-        biz_df = load_xls(uploaded_file)
+        biz_df = load_csv(uploaded_file)
     if biz_df is not None:
         merged = merge_with_clicks(clicks_df, biz_df)
         if merged.empty:
@@ -414,7 +417,7 @@ with tab_yoy:
 with tab_biz:
     if merged is None:
         st.info(
-            "📂 Importez un fichier XLS dans la barre latérale pour afficher "
+            "📂 Importez un fichier CSV dans la barre latérale pour afficher "
             "les indicateurs business.\n\n"
             "**Format attendu :**\n"
             "| Dimension 1 | Date | Measure Names | Measure Values |\n"
@@ -492,7 +495,7 @@ with tab_biz:
 # ══════════════════════════════════════════════
 with tab_corr:
     if merged is None:
-        st.info("📂 Importez un fichier XLS pour afficher les corrélations.")
+        st.info("📂 Importez un fichier CSV pour afficher les corrélations.")
     else:
         abs_cols = [m for m in ABS_METRICS if m in merged.columns]
         if not abs_cols:

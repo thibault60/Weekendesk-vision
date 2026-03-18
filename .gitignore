@@ -13,6 +13,7 @@ build/
 *.xlsx
 *.csv
 data/
+uploads/
 
 # Streamlit cache
 .streamlit/cache/
