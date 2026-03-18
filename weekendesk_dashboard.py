@@ -70,21 +70,12 @@ def build_seo_df():
     return pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
 
 def normalize_date_key(raw):
-    """Normalise 'Mar-26', 'mar-26', 'March-26' → 'Mar-26'."""
+    """Normalise 'Mar-26', 'mar-26' → 'Mar-26' (format CSV Tableau Mon-YY)."""
     s = str(raw).strip()
-    # Format standard Mon-YY
+    # Format "Mar-26" → garder tel quel après normalisation casse
     m = re.match(r'^([A-Za-z]{3})-(\d{2})$', s)
     if m:
         return f"{m.group(1).capitalize()}-{m.group(2)}"
-    # Format long month
-    long = {"january":"Jan","february":"Feb","march":"Mar","april":"Apr",
-            "may":"May","june":"Jun","july":"Jul","august":"Aug",
-            "september":"Sep","october":"Oct","november":"Nov","december":"Dec"}
-    m2 = re.match(r'^([A-Za-z]+)-(\d{2})$', s, re.I)
-    if m2:
-        short = long.get(m2.group(1).lower())
-        if short:
-            return f"{short}-{m2.group(2)}"
     return None
 
 def parse_csv(uploaded):
