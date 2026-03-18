@@ -69,13 +69,25 @@ def build_seo_df():
         })
     return pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
 
+MONTH_NAMES_FULL = {
+    "january": "Jan", "february": "Feb", "march": "Mar", "april": "Apr",
+    "may": "May", "june": "Jun", "july": "Jul", "august": "Aug",
+    "september": "Sep", "october": "Oct", "november": "Nov", "december": "Dec"
+}
+
 def normalize_date_key(raw):
-    """Normalise 'Mar-26', 'mar-26' → 'Mar-26' (format CSV Tableau Mon-YY)."""
+    """Convertit 'March 2026' ou 'Mar-26' → 'Mar-26'."""
     s = str(raw).strip()
-    # Format "Mar-26" → garder tel quel après normalisation casse
-    m = re.match(r'^([A-Za-z]{3})-(\d{2})$', s)
+    # Format "March 2026" (export Tableau complet)
+    m = re.match(r'^([A-Za-z]+)\s+(\d{4})$', s)
     if m:
-        return f"{m.group(1).capitalize()}-{m.group(2)}"
+        short = MONTH_NAMES_FULL.get(m.group(1).lower())
+        if short:
+            return f"{short}-{m.group(2)[2:]}"
+    # Format court "Mar-26" déjà correct
+    m2 = re.match(r'^([A-Za-z]{3})-(\d{2})$', s)
+    if m2:
+        return f"{m2.group(1).capitalize()}-{m2.group(2)}"
     return None
 
 def parse_csv(uploaded):
@@ -120,6 +132,9 @@ def parse_csv(uploaded):
         errors="coerce"
     )
 
+    # Strip des Measure Names avant pivot
+    df[col_map["mname"]] = df[col_map["mname"]].astype(str).str.strip()
+
     # Pivot
     pivot = df.pivot_table(
         index="date_key",
@@ -128,6 +143,7 @@ def parse_csv(uploaded):
         aggfunc="first"
     ).reset_index()
     pivot.columns.name = None
+    pivot.columns = [c.strip() if isinstance(c, str) else c for c in pivot.columns]
     return pivot
 
 def fmt_num(v, decimals=0):
