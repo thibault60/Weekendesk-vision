@@ -52,6 +52,15 @@ BRAND_ORANGE = "#FF6B00"
 BRAND_BLUE   = "#1E3A5F"
 PARTIAL_KEY  = "Mar-26"   # mois incomplet
 
+DELTA_MAP = {
+    "Purchases":     "% Δ Purchases",
+    "AOV":           "% Δ AOV",
+    "Gross Revenue": "% Δ Gross Revenue",
+    "GBV":           "% Δ GBV vs LP",
+    "CVR":           "% Δ CVR",
+    "Sessions":      "% Δ Sessions",
+}
+
 def build_seo_df():
     rows = []
     for key, clicks in SEO_CLICKS_RAW.items():
@@ -287,8 +296,8 @@ with tab2:
     if merged_df is None:
         st.info("👆 Importe un fichier CSV dans la sidebar pour voir les métriques business.")
     else:
-        METRICS_ABS = ["Purchases","AOV","Gross Revenue","GBV","CVR"]
-        METRICS_DELTA = ["% Δ Purchases","% Δ AOV","% Δ Gross Revenue","% Δ GBV","% Δ CVR"]
+        METRICS_ABS   = ["Purchases", "AOV", "Gross Revenue", "GBV", "CVR", "Sessions"]
+        METRICS_DELTA = ["% Δ Purchases", "% Δ AOV", "% Δ Gross Revenue", "% Δ GBV vs LP", "% Δ CVR", "% Δ Sessions"]
         SPECIAL = {"% Total GBV"}
 
         available_abs   = [m for m in METRICS_ABS   if m in merged_df.columns]
@@ -301,34 +310,42 @@ with tab2:
             kpi_cols = st.columns(len(available_abs))
             for i, m in enumerate(available_abs):
                 val = last.get(m, np.nan)
-                delta_col = f"% Δ {m}" if f"% Δ {m}" in merged_df.columns else None
-                dval = last.get(delta_col, np.nan) if delta_col else np.nan
+                # CVR : ratio décimal → multiplier par 100
+                val_display = val * 100 if m == "CVR" else val
+                decimals = 2 if m in ("AOV", "CVR") else 0
+                suffix = " %" if m == "CVR" else (" €" if m in ("AOV", "Gross Revenue", "GBV") else "")
+                delta_col = DELTA_MAP.get(m)
+                dval = last.get(delta_col, np.nan) if delta_col and delta_col in merged_df.columns else np.nan
                 with kpi_cols[i]:
-                    suffix = "%" if m == "CVR" else ("€" if "Revenue" in m or m in ["AOV","GBV"] else "")
-                    st.metric(m, fmt_num(val, 2 if m=="AOV" else 0) + suffix,
-                              f"{dval:+.1f}%" if not pd.isna(dval) else None)
+                    st.metric(m, fmt_num(val_display, decimals) + suffix,
+                              f"{dval*100:+.1f}%" if m == "CVR" and not pd.isna(dval) else
+                              (f"{dval:+.1f}%" if not pd.isna(dval) else None))
 
         # Graphiques double-axe
         st.markdown("#### Clics SEO vs Métriques Business")
+        # Copie pour affichage CVR en %
+        merged_display = merged_df.copy()
+        if "CVR" in merged_display.columns:
+            merged_display["CVR"] = merged_display["CVR"] * 100
         for metric in available_abs:
             fig2 = make_subplots(specs=[[{"secondary_y": True}]])
             fig2.add_trace(go.Bar(
-                x=merged_df["date_key"], y=merged_df["seo_clicks"],
+                x=merged_display["date_key"], y=merged_display["seo_clicks"],
                 name="Clics SEO", marker_color=BRAND_ORANGE, opacity=0.6
             ), secondary_y=False)
             fig2.add_trace(go.Scatter(
-                x=merged_df["date_key"], y=merged_df[metric],
+                x=merged_display["date_key"], y=merged_display[metric],
                 name=metric, mode="lines+markers",
                 line=dict(color=BRAND_BLUE, width=2.5), marker=dict(size=7)
             ), secondary_y=True)
             # Annotations % Δ
-            dkey = f"% Δ {metric}"
+            dkey = DELTA_MAP.get(metric, f"% Δ {metric}")
             if dkey in merged_df.columns:
                 for _, row in merged_df.iterrows():
                     if not pd.isna(row.get(dkey)):
                         color = "green" if row[dkey] >= 0 else "red"
                         fig2.add_annotation(
-                            x=row["date_key"], y=row[metric],
+                            x=row["date_key"], y=merged_display.loc[row.name, metric],
                             text=f"{row[dkey]:+.1f}%",
                             showarrow=False, yref="y2",
                             font=dict(size=9, color=color), yshift=14
@@ -366,7 +383,7 @@ with tab3:
     if merged_df is None:
         st.info("👆 Importe un fichier CSV dans la sidebar pour voir les corrélations.")
     else:
-        available_abs = [m for m in ["Purchases","AOV","Gross Revenue","GBV","CVR"]
+        available_abs = [m for m in ["Purchases","AOV","Gross Revenue","GBV","CVR","Sessions"]
                          if m in merged_df.columns]
         corr_data = []
         for m in available_abs:
