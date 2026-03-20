@@ -673,11 +673,17 @@ with tab3:
                     nb_n_vals  = [n_rows.loc[m, "Non-Brand"]  for m in month_labels]
                     b_n_vals   = [n_rows.loc[m, "Brand"]      for m in month_labels]
 
+                    def fmt_k(v):
+                        return f"{v/1000:.0f}k" if not pd.isna(v) else ""
+
                     fig_jf.add_trace(go.Bar(
                         name="N-1 Non-Brand",
                         x=month_labels, y=nb_n1_vals,
                         offsetgroup="n1",
                         marker_color="#FFB37A",
+                        text=[fmt_k(v) for v in nb_n1_vals],
+                        textposition="inside",
+                        textfont=dict(size=11, color="#7a3800"),
                         hovertemplate="<b>%{x} N-1 Non-Brand</b><br>%{y:,.0f}<extra></extra>",
                     ))
                     fig_jf.add_trace(go.Bar(
@@ -685,6 +691,9 @@ with tab3:
                         x=month_labels, y=b_n1_vals,
                         offsetgroup="n1",
                         marker_color="#98D8A0",
+                        text=[fmt_k(v) for v in b_n1_vals],
+                        textposition="inside",
+                        textfont=dict(size=11, color="#1a5c2a"),
                         hovertemplate="<b>%{x} N-1 Brand</b><br>%{y:,.0f}<extra></extra>",
                     ))
                     fig_jf.add_trace(go.Bar(
@@ -692,6 +701,9 @@ with tab3:
                         x=month_labels, y=nb_n_vals,
                         offsetgroup="n",
                         marker_color=COLOR_NB,
+                        text=[fmt_k(v) for v in nb_n_vals],
+                        textposition="inside",
+                        textfont=dict(size=11, color="white"),
                         hovertemplate="<b>%{x} N Non-Brand</b><br>%{y:,.0f}<extra></extra>",
                     ))
                     fig_jf.add_trace(go.Bar(
@@ -699,6 +711,9 @@ with tab3:
                         x=month_labels, y=b_n_vals,
                         offsetgroup="n",
                         marker_color=COLOR_B,
+                        text=[fmt_k(v) for v in b_n_vals],
+                        textposition="inside",
+                        textfont=dict(size=11, color="white"),
                         hovertemplate="<b>%{x} N Brand</b><br>%{y:,.0f}<extra></extra>",
                     ))
 
