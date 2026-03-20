@@ -668,6 +668,46 @@ with tab3:
                     with col_ui:
                         st.plotly_chart(fig_sc, use_container_width=True)
 
+                # ── Export XLS ───────────────────────────────────────────────
+                if not sub_gbv.empty:
+                    export_df = sub_gbv.rename(columns={
+                        "date_key": "Mois",
+                        "hm_clicks": "Clics Hors Marque",
+                        "m_clicks":  "Clics Marque",
+                        "GBV":       "GBV (€)",
+                        "δ_hm":      "Δ% Hors Marque MoM",
+                        "δ_m":       "Δ% Marque MoM",
+                        "δ_gbv":     "Δ% GBV MoM",
+                    })
+
+                    # Corrélations HM/Marque vs GBV
+                    corr_rows = []
+                    for lbl, col_k in [("Hors Marque", "Clics Hors Marque"),
+                                        ("Marque",      "Clics Marque")]:
+                        sub_c = export_df[["GBV (€)", col_k]].dropna()
+                        if len(sub_c) >= 3:
+                            r_val = np.corrcoef(sub_c[col_k], sub_c["GBV (€)"])[0, 1]
+                            corr_rows.append({
+                                "Segment": lbl,
+                                "r (Pearson)": round(r_val, 4),
+                                "R²": round(r_val**2, 4),
+                                "N": len(sub_c),
+                            })
+                    corr_export = pd.DataFrame(corr_rows)
+
+                    buf = io.BytesIO()
+                    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                        export_df.to_excel(writer, sheet_name="Données GBV", index=False)
+                        corr_export.to_excel(writer, sheet_name="Corrélations", index=False)
+                    buf.seek(0)
+
+                    st.download_button(
+                        label="📥 Exporter en Excel — Impact clics sur GBV",
+                        data=buf,
+                        file_name="weekendesk_gbv_clics.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+
                 st.markdown("---")
 
             st.markdown(f"#### Scatter plots — {corr_type} vs Métriques")
