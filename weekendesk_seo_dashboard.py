@@ -16,9 +16,9 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-#  STATIC SEO CLICKS DATA
+#  STATIC SEO CLICKS DATA – TOTAL
 #  (year, month_int) → clicks
-#  Note: Mars 2026 = données partielles (~18j)
+#  Note: Mars 2026 = données partielles
 # ─────────────────────────────────────────────
 SEO_CLICKS_RAW = {
     (2024, 12): 304_665,
@@ -37,6 +37,50 @@ SEO_CLICKS_RAW = {
     (2026,  1): 143_541,
     (2026,  2): 134_778,
     (2026,  3):  50_700,   # partiel
+}
+
+# ─────────────────────────────────────────────
+#  CLICS HORS MARQUE (non-brand)
+# ─────────────────────────────────────────────
+SEO_HORS_MARQUE = {
+    (2024, 12): 272_173,
+    (2025,  1): 146_443,
+    (2025,  2): 133_246,
+    (2025,  3): 109_981,
+    (2025,  4): 108_310,
+    (2025,  5): 110_358,
+    (2025,  6):  97_174,
+    (2025,  7): 126_792,
+    (2025,  8): 151_396,
+    (2025,  9): 128_022,
+    (2025, 10): 189_749,
+    (2025, 11): 255_439,
+    (2025, 12): 280_385,
+    (2026,  1): 125_385,
+    (2026,  2): 115_359,
+    (2026,  3):  42_996,   # partiel
+}
+
+# ─────────────────────────────────────────────
+#  CLICS MARQUE (brand)
+# ─────────────────────────────────────────────
+SEO_MARQUE = {
+    (2024, 12):  32_492,
+    (2025,  1):  30_633,
+    (2025,  2):  34_853,
+    (2025,  3):  28_768,
+    (2025,  4):  26_879,
+    (2025,  5):  33_836,
+    (2025,  6):  28_485,
+    (2025,  7):  31_308,
+    (2025,  8):  32_476,
+    (2025,  9):  30_845,
+    (2025, 10):  34_808,
+    (2025, 11):  21_923,
+    (2025, 12):  19_971,
+    (2026,  1):  18_156,
+    (2026,  2):  19_419,
+    (2026,  3):   7_704,   # partiel
 }
 
 MONTH_ABBR_FR = {
@@ -68,6 +112,8 @@ ABS_METRICS   = [m for m in BUSINESS_METRICS if m not in DELTA_METRICS]
 
 COLORS = {
     "clicks":        "#1f77b4",
+    "clicks_hm":     "#e07b39",
+    "clicks_m":      "#2ca02c",
     "purchases":     "#2ca02c",
     "revenue":       "#ff7f0e",
     "gbv":           "#9467bd",
@@ -99,13 +145,15 @@ def build_clicks_df() -> pd.DataFrame:
     rows = []
     for (year, month), clicks in SEO_CLICKS_RAW.items():
         rows.append({
-            "year":  year,
-            "month": month,
+            "year":        year,
+            "month":       month,
             "month_label": MONTH_NUM_TO_FR[month],
-            "period": f"{MONTH_NUM_TO_FR[month][:3]}-{str(year)[2:]}",
-            "date":  pd.Timestamp(year=year, month=month, day=1),
-            "clicks": clicks,
-            "partial": (year == 2026 and month == 3),
+            "period":      f"{MONTH_NUM_TO_FR[month][:3]}-{str(year)[2:]}",
+            "date":        pd.Timestamp(year=year, month=month, day=1),
+            "clicks":      clicks,
+            "clicks_hm":   SEO_HORS_MARQUE.get((year, month), 0),
+            "clicks_m":    SEO_MARQUE.get((year, month), 0),
+            "partial":     (year == 2026 and month == 3),
         })
     df = pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
     return df
@@ -148,10 +196,10 @@ def load_csv(file) -> pd.DataFrame | None:
     raw.columns = [str(c).strip() for c in raw.columns]
 
     # Detect column names flexibly
-    dim_col     = next((c for c in raw.columns if "dimension" in c.lower()), None)
-    date_col    = next((c for c in raw.columns if "date" in c.lower()), None)
-    mname_col   = next((c for c in raw.columns if "measure name" in c.lower() or "mesure" in c.lower()), None)
-    mvalue_col  = next((c for c in raw.columns if "measure value" in c.lower() or "valeur" in c.lower()), None)
+    dim_col    = next((c for c in raw.columns if "dimension" in c.lower()), None)
+    date_col   = next((c for c in raw.columns if "date" in c.lower()), None)
+    mname_col  = next((c for c in raw.columns if "measure name" in c.lower() or "mesure" in c.lower()), None)
+    mvalue_col = next((c for c in raw.columns if "measure value" in c.lower() or "valeur" in c.lower()), None)
 
     missing = [n for n, c in [("Dimension 1", dim_col), ("Date", date_col),
                                ("Measure Names", mname_col), ("Measure Values", mvalue_col)] if c is None]
@@ -160,7 +208,7 @@ def load_csv(file) -> pd.DataFrame | None:
                  f"Colonnes détectées : {list(raw.columns)}")
         return None
 
-    # Filter seo only
+    # Filter seo only (Dimension 1 == 'seo')
     df = raw[raw[dim_col].astype(str).str.strip().str.lower() == "seo"].copy()
     if df.empty:
         st.warning("Aucune ligne avec Dimension 1 = 'seo' trouvée.")
@@ -222,7 +270,8 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "📂 Importer le fichier CSV",
         type=["csv"],
-        help="Format attendu : Dimension 1 | Date | Measure Names | Measure Values",
+        help="Format attendu : Dimension 1 | Date | Measure Names | Measure Values\n"
+             "Seules les lignes Dimension 1 = 'seo' sont utilisées.",
     )
 
     st.markdown("---")
@@ -233,7 +282,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.caption("Données clics SEO : statiques | Business : fichier CSV")
+    st.caption("Données clics SEO : statiques | Business : fichier CSV (filtre seo)")
     st.caption("Traitement 100% local – aucune donnée envoyée.")
 
 
@@ -243,8 +292,8 @@ with st.sidebar:
 clicks_df = build_clicks_df()
 clicks_filtered = clicks_df[clicks_df["year"].isin(selected_years)].copy()
 
-biz_df   = None
-merged   = None
+biz_df = None
+merged = None
 
 if uploaded_file:
     with st.spinner("Chargement du fichier…"):
@@ -260,9 +309,7 @@ if uploaded_file:
 #  HEADER
 # ─────────────────────────────────────────────
 st.title("🏨 Weekendesk – Tableau de bord SEO")
-st.markdown(
-    "Suivi des **clics SEO** et de la **performance business** par mois."
-)
+st.markdown("Suivi des **clics SEO** (Marque / Hors Marque) et de la **performance business** par mois.")
 
 if clicks_df[clicks_df["partial"]].shape[0] > 0:
     st.info("ℹ️ Mars 2026 : données partielles (≈ 18 premiers jours du mois).", icon="📅")
@@ -272,28 +319,34 @@ if clicks_df[clicks_df["partial"]].shape[0] > 0:
 # ─────────────────────────────────────────────
 latest = clicks_df[~clicks_df["partial"]].iloc[-1]
 prev   = clicks_df[~clicks_df["partial"]].iloc[-2]
-yoy_ref = clicks_df[
-    (clicks_df["year"]  == latest["year"] - 1) &
-    (clicks_df["month"] == latest["month"])
-]
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
+    delta_hm = fmt_pct((latest["clicks_hm"] / prev["clicks_hm"] - 1) * 100) + " vs mois préc."
     st.metric(
-        f"Clics SEO – {latest['period']}",
-        fmt_number(latest["clicks"]),
-        delta=fmt_pct((latest["clicks"] / prev["clicks"] - 1) * 100) + " vs mois préc.",
+        f"Clics Hors Marque – {latest['period']}",
+        fmt_number(latest["clicks_hm"]),
+        delta=delta_hm,
     )
 with col2:
-    yoy_val = yoy_ref["clicks"].values[0] if not yoy_ref.empty else None
-    yoy_delta = fmt_pct((latest["clicks"] / yoy_val - 1) * 100) + " YoY" if yoy_val else "–"
-    st.metric("Clics SEO – YoY", fmt_number(yoy_val) if yoy_val else "–", delta=yoy_delta)
+    delta_m = fmt_pct((latest["clicks_m"] / prev["clicks_m"] - 1) * 100) + " vs mois préc."
+    st.metric(
+        f"Clics Marque – {latest['period']}",
+        fmt_number(latest["clicks_m"]),
+        delta=delta_m,
+    )
 with col3:
-    total_2025 = clicks_df[clicks_df["year"] == 2025]["clicks"].sum()
-    st.metric("Total clics 2025", fmt_number(total_2025))
+    total_hm_2025 = clicks_df[clicks_df["year"] == 2025]["clicks_hm"].sum()
+    total_m_2025  = clicks_df[clicks_df["year"] == 2025]["clicks_m"].sum()
+    st.metric("Total HM 2025", fmt_number(total_hm_2025))
 with col4:
-    ytd_2026 = clicks_df[(clicks_df["year"] == 2026)]["clicks"].sum()
-    st.metric("Total clics 2026 (YTD)", fmt_number(ytd_2026))
+    ytd_hm_2026 = clicks_df[clicks_df["year"] == 2026]["clicks_hm"].sum()
+    ytd_m_2026  = clicks_df[clicks_df["year"] == 2026]["clicks_m"].sum()
+    st.metric("Total HM 2026 (YTD)", fmt_number(ytd_hm_2026),
+              delta=fmt_pct((ytd_hm_2026 / clicks_df[
+                  (clicks_df["year"] == 2025) &
+                  (clicks_df["month"].isin(clicks_df[clicks_df["year"] == 2026]["month"]))
+              ]["clicks_hm"].sum() - 1) * 100) + " YoY")
 
 st.markdown("---")
 
@@ -314,58 +367,84 @@ tab_clicks, tab_yoy, tab_biz, tab_corr, tab_top = st.tabs([
 with tab_clicks:
     st.subheader("Évolution mensuelle des clics SEO")
 
+    series_choice = st.multiselect(
+        "Séries à afficher",
+        options=["Total SEO", "Hors Marque", "Marque"],
+        default=["Total SEO", "Hors Marque", "Marque"],
+    )
+
     fig = go.Figure()
-    for year in selected_years:
-        df_y = clicks_filtered[clicks_filtered["year"] == year].copy()
-        if df_y.empty:
-            continue
+    series_map = {
+        "Total SEO":   ("clicks",    COLORS["clicks"],    "solid"),
+        "Hors Marque": ("clicks_hm", COLORS["clicks_hm"], "solid"),
+        "Marque":      ("clicks_m",  COLORS["clicks_m"],  "dot"),
+    }
+
+    for label in series_choice:
+        col_key, color, dash = series_map[label]
+        df_s = clicks_filtered[["date", col_key]].dropna()
         fig.add_trace(go.Scatter(
-            x=df_y["date"],
-            y=df_y["clicks"],
+            x=df_s["date"],
+            y=df_s[col_key],
             mode="lines+markers",
-            name=str(year),
-            line=dict(width=2),
+            name=label,
+            line=dict(width=2.5, color=color, dash=dash),
             marker=dict(size=7),
-            hovertemplate="<b>%{x|%b %Y}</b><br>Clics : %{y:,.0f}<extra></extra>",
+            hovertemplate=f"<b>%{{x|%b %Y}}</b><br>{label} : %{{y:,.0f}}<extra></extra>",
         ))
+
     fig.update_layout(
         xaxis_title="Mois",
         yaxis_title="Clics SEO",
         hovermode="x unified",
-        legend_title="Année",
-        height=420,
+        legend_title="Série",
+        height=560,
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Monthly heatmap
-    st.subheader("Heatmap clics SEO par mois / année")
-    heatmap_data = clicks_df.pivot_table(
-        index="month", columns="year", values="clicks", aggfunc="first"
+    # Monthly heatmap – Hors Marque
+    st.subheader("Heatmap – Clics Hors Marque par mois / année")
+    heatmap_hm = clicks_df.pivot_table(
+        index="month", columns="year", values="clicks_hm", aggfunc="first"
     )
-    heatmap_data.index = [MONTH_NUM_TO_FR[m] for m in heatmap_data.index]
-
+    heatmap_hm.index = [MONTH_NUM_TO_FR[m] for m in heatmap_hm.index]
     fig_h = px.imshow(
-        heatmap_data,
-        color_continuous_scale="Blues",
+        heatmap_hm,
+        color_continuous_scale="Oranges",
         text_auto=True,
         aspect="auto",
-        labels={"color": "Clics"},
+        labels={"color": "Clics HM"},
     )
     fig_h.update_traces(texttemplate="%{z:,.0f}")
-    fig_h.update_layout(height=400)
+    fig_h.update_layout(height=500)
     st.plotly_chart(fig_h, use_container_width=True)
 
-    with st.expander("📋 Données brutes – Clics SEO"):
+    # Monthly heatmap – Marque
+    st.subheader("Heatmap – Clics Marque par mois / année")
+    heatmap_m = clicks_df.pivot_table(
+        index="month", columns="year", values="clicks_m", aggfunc="first"
+    )
+    heatmap_m.index = [MONTH_NUM_TO_FR[m] for m in heatmap_m.index]
+    fig_hm2 = px.imshow(
+        heatmap_m,
+        color_continuous_scale="Greens",
+        text_auto=True,
+        aspect="auto",
+        labels={"color": "Clics M"},
+    )
+    fig_hm2.update_traces(texttemplate="%{z:,.0f}")
+    fig_hm2.update_layout(height=500)
+    st.plotly_chart(fig_hm2, use_container_width=True)
+
+    with st.expander("📋 Données brutes – Clics SEO (Total / HM / Marque)"):
         display = clicks_filtered.copy()
-        display["clicks_fmt"] = display["clicks"].apply(fmt_number)
-        display["partial_flag"] = display["partial"].apply(lambda x: "⚠️ partiel" if x else "")
+        display["Total"]        = display["clicks"].apply(fmt_number)
+        display["Hors Marque"]  = display["clicks_hm"].apply(fmt_number)
+        display["Marque"]       = display["clicks_m"].apply(fmt_number)
+        display["Note"]         = display["partial"].apply(lambda x: "⚠️ partiel" if x else "")
         st.dataframe(
-            display[["period", "year", "month_label", "clicks_fmt", "partial_flag"]]
-            .rename(columns={
-                "period": "Période", "year": "Année",
-                "month_label": "Mois", "clicks_fmt": "Clics SEO",
-                "partial_flag": "Note",
-            }),
+            display[["period", "year", "month_label", "Total", "Hors Marque", "Marque", "Note"]]
+            .rename(columns={"period": "Période", "year": "Année", "month_label": "Mois"}),
             use_container_width=True, hide_index=True,
         )
 
@@ -376,8 +455,20 @@ with tab_clicks:
 with tab_yoy:
     st.subheader("Comparaison YoY – 2025 vs 2026")
 
-    df_2025 = clicks_df[clicks_df["year"] == 2025].set_index("month")["clicks"]
-    df_2026 = clicks_df[clicks_df["year"] == 2026].set_index("month")["clicks"]
+    yoy_type = st.radio(
+        "Type de clics",
+        options=["Total SEO", "Hors Marque", "Marque"],
+        horizontal=True,
+    )
+    yoy_col_map = {
+        "Total SEO":   ("clicks",    "Clics Total SEO"),
+        "Hors Marque": ("clicks_hm", "Clics Hors Marque"),
+        "Marque":      ("clicks_m",  "Clics Marque"),
+    }
+    yoy_col, yoy_label = yoy_col_map[yoy_type]
+
+    df_2025 = clicks_df[clicks_df["year"] == 2025].set_index("month")[yoy_col]
+    df_2026 = clicks_df[clicks_df["year"] == 2026].set_index("month")[yoy_col]
     common_months = sorted(set(df_2025.index) & set(df_2026.index))
 
     if common_months:
@@ -398,13 +489,13 @@ with tab_yoy:
             marker_color=COLORS["clicks"],
         ))
         fig_bar.update_layout(
-            barmode="group", height=380,
-            yaxis_title="Clics SEO",
+            barmode="group", height=520,
+            yaxis_title=yoy_label,
             hovermode="x unified",
+            title=f"{yoy_label} – 2025 vs 2026",
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Delta chart
         fig_delta = go.Figure(go.Bar(
             x=bar_df["Mois"],
             y=bar_df["Δ YoY (%)"],
@@ -415,9 +506,9 @@ with tab_yoy:
         ))
         fig_delta.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_delta.update_layout(
-            title="Variation YoY en % (2026 vs 2025)",
+            title=f"Variation YoY en % (2026 vs 2025) – {yoy_label}",
             yaxis_title="% Δ",
-            height=320,
+            height=420,
         )
         st.plotly_chart(fig_delta, use_container_width=True)
     else:
@@ -436,7 +527,8 @@ with tab_biz:
             "| Dimension 1 | Date | Measure Names | Measure Values |\n"
             "|---|---|---|---|\n"
             "| seo | Mar-26 | Purchases | 1234 |\n"
-            "| seo | Mar-26 | AOV | 89.5 | …"
+            "| seo | Mar-26 | AOV | 89.5 | …\n\n"
+            "ℹ️ Seules les lignes `Dimension 1 = seo` sont utilisées."
         )
     else:
         present_metrics = [m for m in BUSINESS_METRICS if m in merged.columns]
@@ -446,7 +538,6 @@ with tab_biz:
         if not present_metrics:
             st.warning("Aucune métrique business reconnue dans le fichier.")
         else:
-            # Latest period KPIs
             last_row = merged.iloc[-1]
             st.subheader(f"KPIs – {last_row['period']}")
             kpi_cols = st.columns(len(abs_present)) if abs_present else []
@@ -463,26 +554,31 @@ with tab_biz:
 
             st.markdown("---")
 
-            # Dual axis charts: clicks + each abs metric
             for metric in abs_present:
                 st.subheader(f"Clics SEO vs {metric}")
                 fig2 = make_subplots(specs=[[{"secondary_y": True}]])
                 fig2.add_trace(go.Bar(
-                    x=merged["date"], y=merged["clicks"],
-                    name="Clics SEO", marker_color="#aec7e8", opacity=0.6,
+                    x=merged["date"], y=merged["clicks_hm"],
+                    name="Clics Hors Marque", marker_color="#f0c080", opacity=0.7,
+                ), secondary_y=False)
+                fig2.add_trace(go.Bar(
+                    x=merged["date"], y=merged["clicks_m"],
+                    name="Clics Marque", marker_color="#aec7e8", opacity=0.7,
                 ), secondary_y=False)
                 fig2.add_trace(go.Scatter(
                     x=merged["date"], y=merged[metric],
                     name=metric, mode="lines+markers",
-                    line=dict(color=COLORS["revenue"], width=2),
-                    marker=dict(size=7),
+                    line=dict(color=COLORS["revenue"], width=2.5),
+                    marker=dict(size=8),
                 ), secondary_y=True)
                 fig2.update_yaxes(title_text="Clics SEO", secondary_y=False)
                 fig2.update_yaxes(title_text=metric, secondary_y=True)
-                fig2.update_layout(height=340, hovermode="x unified", legend_title="")
+                fig2.update_layout(
+                    barmode="stack", height=500,
+                    hovermode="x unified", legend_title="",
+                )
                 st.plotly_chart(fig2, use_container_width=True)
 
-            # Delta metrics evolution
             if delta_present:
                 st.subheader("Évolution des indicateurs de variation (%)")
                 fig_d = go.Figure()
@@ -492,13 +588,15 @@ with tab_biz:
                         mode="lines+markers", name=metric,
                     ))
                 fig_d.add_hline(y=0, line_dash="dash", line_color="gray")
-                fig_d.update_layout(height=350, yaxis_title="%", hovermode="x unified")
+                fig_d.update_layout(height=460, yaxis_title="%", hovermode="x unified")
                 st.plotly_chart(fig_d, use_container_width=True)
 
             with st.expander("📋 Données fusionnées complètes"):
-                disp_cols = ["period", "clicks"] + present_metrics
+                disp_cols = ["period", "clicks", "clicks_hm", "clicks_m"] + present_metrics
                 st.dataframe(
-                    merged[[c for c in disp_cols if c in merged.columns]],
+                    merged[[c for c in disp_cols if c in merged.columns]].rename(columns={
+                        "clicks": "Total SEO", "clicks_hm": "Hors Marque", "clicks_m": "Marque",
+                    }),
                     use_container_width=True, hide_index=True,
                 )
 
@@ -514,13 +612,22 @@ with tab_corr:
         if not abs_cols:
             st.warning("Aucune métrique absolute disponible pour calculer les corrélations.")
         else:
-            st.subheader("Corrélation Clics SEO ↔ Métriques business")
+            corr_type = st.radio(
+                "Corrélation avec", ["Total SEO", "Hors Marque", "Marque"],
+                horizontal=True,
+            )
+            corr_col_map = {
+                "Total SEO": "clicks", "Hors Marque": "clicks_hm", "Marque": "clicks_m"
+            }
+            corr_col = corr_col_map[corr_type]
+
+            st.subheader(f"Corrélation {corr_type} ↔ Métriques business")
 
             corr_data = {}
             for metric in abs_cols:
-                sub = merged[["clicks", metric]].dropna()
+                sub = merged[[corr_col, metric]].dropna()
                 if len(sub) >= 3:
-                    corr_data[metric] = sub["clicks"].corr(sub[metric])
+                    corr_data[metric] = sub[corr_col].corr(sub[metric])
 
             if corr_data:
                 corr_df = pd.DataFrame.from_dict(
@@ -540,24 +647,23 @@ with tab_corr:
                 fig_c.add_hline(y=0, line_dash="dash", line_color="gray")
                 fig_c.update_layout(
                     yaxis=dict(range=[-1.1, 1.1]),
-                    height=320,
+                    height=440,
                     yaxis_title="Coefficient de Pearson (r)",
                 )
                 st.plotly_chart(fig_c, use_container_width=True)
 
-            # Scatter plots
             selected_metric = st.selectbox("Choisir une métrique pour le scatter", abs_cols)
             if selected_metric:
-                sub = merged[["period", "clicks", selected_metric]].dropna()
+                sub = merged[["period", corr_col, selected_metric]].dropna()
                 fig_s = px.scatter(
-                    sub, x="clicks", y=selected_metric,
+                    sub, x=corr_col, y=selected_metric,
                     text="period",
                     trendline="ols",
-                    labels={"clicks": "Clics SEO", selected_metric: selected_metric},
-                    title=f"Clics SEO vs {selected_metric}",
+                    labels={corr_col: corr_type, selected_metric: selected_metric},
+                    title=f"{corr_type} vs {selected_metric}",
                 )
                 fig_s.update_traces(textposition="top center")
-                fig_s.update_layout(height=420)
+                fig_s.update_layout(height=560)
                 st.plotly_chart(fig_s, use_container_width=True)
 
 
@@ -572,7 +678,6 @@ with tab_top:
     df_top["% du total"] = (df_top["clics"] / total_top * 100).round(1)
     df_top["rang"] = range(1, len(df_top) + 1)
 
-    # Graphique horizontal bar chart
     fig_top = go.Figure(go.Bar(
         x=df_top["clics"],
         y=df_top["page"],
@@ -592,12 +697,11 @@ with tab_top:
     fig_top.update_layout(
         xaxis_title="Clics SEO (annuel 2025)",
         yaxis=dict(autorange="reversed"),
-        height=380,
-        margin=dict(l=120, r=180),
+        height=500,
+        margin=dict(l=120, r=200),
     )
     st.plotly_chart(fig_top, use_container_width=True)
 
-    # Tableau récap
     st.subheader("Détail")
     df_display = df_top[["rang", "page", "clics", "% du total"]].copy()
     df_display["clics_fmt"] = df_display["clics"].apply(fmt_number)
