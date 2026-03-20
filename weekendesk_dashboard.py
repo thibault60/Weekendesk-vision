@@ -733,15 +733,6 @@ with tab3:
                             font=dict(size=13, color=color_g),
                             yshift=16,
                         )
-                        # GBV absolute values below
-                        fig_jf.add_annotation(
-                            x=m, y=0,
-                            text=f"<b>GBV: {gbv_n1:,.0f} → {gbv_n:,.0f}</b>".replace(",", "\u202f"),
-                            showarrow=False,
-                            font=dict(size=14, color=color_g),
-                            yshift=-44,
-                            yref="y",
-                        )
 
                     fig_jf.update_layout(
                         barmode="stack", plot_bgcolor="white", height=520,
