@@ -718,31 +718,25 @@ with tab3:
                     ))
 
                     for m in month_labels:
-                        v_n1 = n1_rows.loc[m, "Total Clicks"]
-                        v_n  = n_rows.loc[m, "Total Clicks"]
-                        delta = (v_n / v_n1 - 1) * 100 if v_n1 else np.nan
-                        if pd.isna(delta):
-                            continue
-                        color_d = "green" if delta >= 0 else "red"
-                        fig_jf.add_annotation(
-                            x=m, y=v_n,
-                            text=f"<b>{delta:+.1f}%</b>",
-                            showarrow=False,
-                            font=dict(size=13, color=color_d),
-                            yshift=16,
-                        )
-
-                    for m in month_labels:
                         gbv_n1 = n1_rows.loc[m, "GBV"] if "GBV" in n1_rows.columns else np.nan
                         gbv_n  = n_rows.loc[m, "GBV"]  if "GBV" in n_rows.columns  else np.nan
+                        v_n    = n_rows.loc[m, "Total Clicks"]
                         if pd.isna(gbv_n1) or pd.isna(gbv_n):
                             continue
                         delta_gbv = (gbv_n / gbv_n1 - 1) * 100 if gbv_n1 else np.nan
                         color_g = "green" if (not pd.isna(delta_gbv) and delta_gbv >= 0) else "red"
-                        delta_txt = f" ({delta_gbv:+.1f}%)" if not pd.isna(delta_gbv) else ""
+                        # GBV Δ% above the N bar (replaces click delta)
+                        fig_jf.add_annotation(
+                            x=m, y=v_n,
+                            text=f"<b>GBV {delta_gbv:+.1f}%</b>" if not pd.isna(delta_gbv) else "",
+                            showarrow=False,
+                            font=dict(size=13, color=color_g),
+                            yshift=16,
+                        )
+                        # GBV absolute values below
                         fig_jf.add_annotation(
                             x=m, y=0,
-                            text=f"<b>GBV: {gbv_n1:,.0f} → {gbv_n:,.0f}{delta_txt}</b>".replace(",", "\u202f"),
+                            text=f"<b>GBV: {gbv_n1:,.0f} → {gbv_n:,.0f}</b>".replace(",", "\u202f"),
                             showarrow=False,
                             font=dict(size=14, color=color_g),
                             yshift=-44,
