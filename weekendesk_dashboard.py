@@ -569,6 +569,75 @@ with tab3:
             fig_r.update_layout(plot_bgcolor="white", height=440)
             st.plotly_chart(fig_r, use_container_width=True)
 
+            # ── FOCUS GBV ────────────────────────────────────────────────────
+            if "GBV" in merged_df.columns:
+                st.markdown("---")
+                st.markdown("#### 🎯 Impact des clics sur la GBV — Hors Marque vs Marque")
+
+                # Évolution temporelle : GBV + HM + Marque (double axe)
+                sub_gbv = merged_df[["date_key", "hm_clicks", "m_clicks", "GBV"]].dropna()
+                if not sub_gbv.empty:
+                    fig_gbv_time = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_gbv_time.add_trace(go.Bar(
+                        x=sub_gbv["date_key"], y=sub_gbv["hm_clicks"],
+                        name="Hors Marque", marker_color=BRAND_ORANGE, opacity=0.7
+                    ), secondary_y=False)
+                    fig_gbv_time.add_trace(go.Bar(
+                        x=sub_gbv["date_key"], y=sub_gbv["m_clicks"],
+                        name="Marque", marker_color=COLOR_M, opacity=0.7
+                    ), secondary_y=False)
+                    fig_gbv_time.add_trace(go.Scatter(
+                        x=sub_gbv["date_key"], y=sub_gbv["GBV"],
+                        name="GBV", mode="lines+markers",
+                        line=dict(color=BRAND_BLUE, width=3),
+                        marker=dict(size=8, symbol="diamond"),
+                    ), secondary_y=True)
+                    fig_gbv_time.update_layout(
+                        barmode="stack", plot_bgcolor="white", height=520,
+                        hovermode="x unified", legend=dict(orientation="h", y=-0.2),
+                        title="GBV vs Clics Hors Marque & Marque (mensuel)"
+                    )
+                    fig_gbv_time.update_yaxes(title_text="Clics SEO (empilés)", secondary_y=False)
+                    fig_gbv_time.update_yaxes(title_text="GBV (€)", secondary_y=True)
+                    st.plotly_chart(fig_gbv_time, use_container_width=True)
+
+                # Scatter côte à côte : GBV vs HM | GBV vs Marque
+                col_left, col_right = st.columns(2)
+                for col_ui, click_col, label, color in [
+                    (col_left,  "hm_clicks", "Hors Marque", BRAND_ORANGE),
+                    (col_right, "m_clicks",  "Marque",      COLOR_M),
+                ]:
+                    sub = merged_df[["date_key", click_col, "GBV"]].dropna()
+                    if len(sub) < 3:
+                        continue
+                    x, y = sub[click_col].values, sub["GBV"].values
+                    z = np.polyfit(x, y, 1)
+                    p_fn = np.poly1d(z)
+                    r = np.corrcoef(x, y)[0, 1]
+                    x_line = np.linspace(x.min(), x.max(), 100)
+
+                    fig_sc = go.Figure()
+                    fig_sc.add_trace(go.Scatter(
+                        x=x, y=y, mode="markers+text",
+                        text=sub["date_key"], textposition="top center",
+                        marker=dict(color=color, size=10),
+                        name="Données"
+                    ))
+                    fig_sc.add_trace(go.Scatter(
+                        x=x_line, y=p_fn(x_line), mode="lines",
+                        line=dict(color=BRAND_BLUE, dash="dash", width=2),
+                        name="Tendance"
+                    ))
+                    fig_sc.update_layout(
+                        title=f"GBV vs {label}<br>r={r:.3f} | R²={r**2:.3f}",
+                        xaxis_title=f"Clics {label}", yaxis_title="GBV (€)",
+                        plot_bgcolor="white", height=500, showlegend=False
+                    )
+                    with col_ui:
+                        st.plotly_chart(fig_sc, use_container_width=True)
+
+                st.markdown("---")
+
             st.markdown(f"#### Scatter plots — {corr_type} vs Métriques")
             cols_scatter = st.columns(min(len(available_abs), 2))
             for i, m in enumerate(available_abs):
