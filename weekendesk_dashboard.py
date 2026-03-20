@@ -574,9 +574,14 @@ with tab3:
                 st.markdown("---")
                 st.markdown("#### 🎯 Impact des clics sur la GBV — Hors Marque vs Marque")
 
-                # Évolution temporelle : GBV + HM + Marque (double axe)
-                sub_gbv = merged_df[["date_key", "hm_clicks", "m_clicks", "GBV"]].dropna()
+                # Évolution temporelle : GBV + HM + Marque (double axe) + annotations MoM
+                sub_gbv = merged_df[["date_key", "hm_clicks", "m_clicks", "GBV"]].dropna().reset_index(drop=True)
                 if not sub_gbv.empty:
+                    # Calcul des évolutions MoM
+                    sub_gbv["δ_hm"]  = sub_gbv["hm_clicks"].pct_change() * 100
+                    sub_gbv["δ_m"]   = sub_gbv["m_clicks"].pct_change() * 100
+                    sub_gbv["δ_gbv"] = sub_gbv["GBV"].pct_change() * 100
+
                     fig_gbv_time = make_subplots(specs=[[{"secondary_y": True}]])
                     fig_gbv_time.add_trace(go.Bar(
                         x=sub_gbv["date_key"], y=sub_gbv["hm_clicks"],
@@ -592,10 +597,37 @@ with tab3:
                         line=dict(color=BRAND_BLUE, width=3),
                         marker=dict(size=8, symbol="diamond"),
                     ), secondary_y=True)
+
+                    # Annotations MoM Hors Marque (au-dessus des barres)
+                    for _, row in sub_gbv.iterrows():
+                        if pd.isna(row["δ_hm"]):
+                            continue
+                        fig_gbv_time.add_annotation(
+                            x=row["date_key"],
+                            y=row["hm_clicks"] + row["m_clicks"],
+                            text=f"HM {row['δ_hm']:+.1f}%",
+                            showarrow=False, yref="y",
+                            font=dict(size=8, color="darkorange"),
+                            yshift=18,
+                        )
+                    # Annotations MoM GBV (au-dessus de la ligne GBV)
+                    for _, row in sub_gbv.iterrows():
+                        if pd.isna(row["δ_gbv"]):
+                            continue
+                        fig_gbv_time.add_annotation(
+                            x=row["date_key"],
+                            y=row["GBV"],
+                            text=f"GBV {row['δ_gbv']:+.1f}%",
+                            showarrow=False, yref="y2",
+                            font=dict(size=8, color="green" if row["δ_gbv"] >= 0 else "red"),
+                            yshift=16,
+                        )
+
                     fig_gbv_time.update_layout(
-                        barmode="stack", plot_bgcolor="white", height=520,
-                        hovermode="x unified", legend=dict(orientation="h", y=-0.2),
-                        title="GBV vs Clics Hors Marque & Marque (mensuel)"
+                        barmode="stack", plot_bgcolor="white", height=580,
+                        hovermode="x unified", legend=dict(orientation="h", y=-0.15),
+                        title="GBV vs Clics Hors Marque & Marque — évolutions MoM (%)",
+                        margin=dict(t=60),
                     )
                     fig_gbv_time.update_yaxes(title_text="Clics SEO (empilés)", secondary_y=False)
                     fig_gbv_time.update_yaxes(title_text="GBV (€)", secondary_y=True)
