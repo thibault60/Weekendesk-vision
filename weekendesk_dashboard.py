@@ -634,17 +634,19 @@ with tab3:
                     st.plotly_chart(fig_gbv_time, use_container_width=True)
 
                 # ── Janvier & Février — comparaison N-1 ─────────────────────
-                jan_feb_keys = {
-                    "Jan-25": "Jan-26", "Feb-25": "Feb-26",
-                }
+                # Paires N-1 à comparer : (label, clé N-1, clé N)
+                compare_pairs = [
+                    ("Décembre", "Dec-24", "Dec-25"),
+                    ("Janvier",  "Jan-25", "Jan-26"),
+                    ("Février",  "Feb-25", "Feb-26"),
+                ]
                 rows_yoy = []
-                for key_25, key_26 in jan_feb_keys.items():
-                    for year_key, year_label in [(key_25, "2025"), (key_26, "2026")]:
+                for month_label, key_n1, key_n in compare_pairs:
+                    for year_key, year_label in [(key_n1, "N-1"), (key_n, "N")]:
                         row = merged_df[merged_df["date_key"] == year_key]
                         if row.empty:
                             continue
                         r = row.iloc[0]
-                        month_label = "Janvier" if "Jan" in year_key else "Février"
                         rows_yoy.append({
                             "Mois": month_label,
                             "Année": year_label,
@@ -658,13 +660,13 @@ with tab3:
                     yoy_df = pd.DataFrame(rows_yoy)
                     # Calcul des variations N-1 par mois
                     yoy_summary = []
-                    for mois in ["Janvier", "Février"]:
+                    for mois in ["Décembre", "Janvier", "Février"]:
                         sub_m = yoy_df[yoy_df["Mois"] == mois].set_index("Année")
-                        if "2025" not in sub_m.index or "2026" not in sub_m.index:
+                        if "N-1" not in sub_m.index or "N" not in sub_m.index:
                             continue
                         for col, label in [("Hors Marque", "HM"), ("Marque", "M"), ("GBV", "GBV")]:
-                            v25 = sub_m.loc["2025", col]
-                            v26 = sub_m.loc["2026", col]
+                            v25 = sub_m.loc["N-1", col]
+                            v26 = sub_m.loc["N",   col]
                             delta = (v26 / v25 - 1) * 100 if v25 else np.nan
                             yoy_summary.append({
                                 "Mois": mois, "Métrique": col,
@@ -679,7 +681,7 @@ with tab3:
                         subplot_titles=["Clics Hors Marque", "Clics Marque", "GBV (€)"],
                         shared_yaxes=False,
                     )
-                    palette = {"2025": "#aec7e8", "2026": BRAND_ORANGE}
+                    palette = {"N-1": "#aec7e8", "N": BRAND_ORANGE}
                     metrics_cols = ["Hors Marque", "Marque", "GBV"]
                     shown = set()
                     for col_idx, metric in enumerate(metrics_cols, start=1):
@@ -715,7 +717,7 @@ with tab3:
                     fig_jf.update_layout(
                         barmode="group", plot_bgcolor="white", height=520,
                         legend=dict(orientation="h", y=-0.15),
-                        title="Janvier & Février 2025 vs 2026 — Clics HM, Marque & GBV",
+                        title="Déc / Jan / Fév — Clics HM, Marque & GBV (N-1 vs N)",
                     )
                     st.plotly_chart(fig_jf, use_container_width=True)
 
