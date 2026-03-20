@@ -675,76 +675,92 @@ with tab3:
 
                     st.markdown("#### 📅 Déc / Jan / Fév — comparaison N-1")
 
-                    # Graphique barres groupées : HM, Marque, GBV × mois × année
-                    # Labels lisibles pour l'axe X
-                    label_map = {
-                        "Dec-24": "Déc 2024", "Dec-25": "Déc 2025",
-                        "Jan-25": "Jan 2025", "Jan-26": "Jan 2026",
-                        "Feb-25": "Fév 2025", "Feb-26": "Fév 2026",
-                    }
-                    yoy_df["x_label"] = yoy_df["Clé"].map(label_map)
-                    # Ordre chronologique
-                    order = ["Déc 2024","Déc 2025","Jan 2025","Jan 2026","Fév 2025","Fév 2026"]
-                    yoy_df["x_label"] = pd.Categorical(yoy_df["x_label"], categories=order, ordered=True)
-                    yoy_df = yoy_df.sort_values("x_label")
+                    # Graphique : 3 mois × 2 barres (N-1 vs N) — total clics + GBV en annotation
+                    months_order = ["Décembre", "Janvier", "Février"]
 
-                    fig_jf = make_subplots(specs=[[{"secondary_y": True}]])
+                    # Totaux clics par mois/année
+                    yoy_df["Total clics"] = yoy_df["Hors Marque"].fillna(0) + yoy_df["Marque"].fillna(0)
 
-                    # Barres empilées HM + Marque
-                    for metric, color, name in [
-                        ("Hors Marque", BRAND_ORANGE, "Hors Marque"),
-                        ("Marque",      COLOR_M,      "Marque"),
-                    ]:
-                        fig_jf.add_trace(go.Bar(
-                            x=yoy_df["x_label"],
-                            y=yoy_df[metric],
-                            name=name,
-                            marker_color=color,
-                            opacity=0.8,
-                        ), secondary_y=False)
+                    n1_rows = yoy_df[yoy_df["Année"] == "N-1"].set_index("Mois")
+                    n_rows  = yoy_df[yoy_df["Année"] == "N"].set_index("Mois")
+                    mois_labels = [m for m in months_order if m in n1_rows.index and m in n_rows.index]
 
-                    # Ligne GBV
-                    fig_jf.add_trace(go.Scatter(
-                        x=yoy_df["x_label"],
-                        y=yoy_df["GBV"],
-                        name="GBV (€)",
-                        mode="lines+markers",
-                        line=dict(color=BRAND_BLUE, width=3),
-                        marker=dict(size=9, symbol="diamond"),
-                    ), secondary_y=True)
+                    fig_jf = go.Figure()
 
-                    # Annotations Δ% entre N-1 et N pour clics et GBV
-                    for entry in yoy_summary:
-                        if pd.isna(entry["Δ% N-1"]):
+                    # Barre N-1 (bleu clair)
+                    fig_jf.add_trace(go.Bar(
+                        name="N-1",
+                        x=mois_labels,
+                        y=[n1_rows.loc[m, "Total clics"] for m in mois_labels],
+                        marker_color="#aec7e8",
+                        text=[
+                            f"HM {n1_rows.loc[m,'Hors Marque']:,.0f}<br>M {n1_rows.loc[m,'Marque']:,.0f}".replace(",", "\u202f")
+                            for m in mois_labels
+                        ],
+                        textposition="inside",
+                        textfont=dict(size=11),
+                        hovertemplate="<b>%{x} N-1</b><br>Total : %{y:,.0f}<extra></extra>",
+                    ))
+
+                    # Barre N (orange)
+                    fig_jf.add_trace(go.Bar(
+                        name="N",
+                        x=mois_labels,
+                        y=[n_rows.loc[m, "Total clics"] for m in mois_labels],
+                        marker_color=BRAND_ORANGE,
+                        text=[
+                            f"HM {n_rows.loc[m,'Hors Marque']:,.0f}<br>M {n_rows.loc[m,'Marque']:,.0f}".replace(",", "\u202f")
+                            for m in mois_labels
+                        ],
+                        textposition="inside",
+                        textfont=dict(size=11, color="white"),
+                        hovertemplate="<b>%{x} N</b><br>Total : %{y:,.0f}<extra></extra>",
+                    ))
+
+                    # Δ% total clics au-dessus de la barre N
+                    for m in mois_labels:
+                        v_n1 = n1_rows.loc[m, "Total clics"]
+                        v_n  = n_rows.loc[m, "Total clics"]
+                        delta = (v_n / v_n1 - 1) * 100 if v_n1 else np.nan
+                        if pd.isna(delta):
                             continue
-                        mois = entry["Mois"]
-                        metric = entry["Métrique"]
-                        # x du point N
-                        x_n = yoy_df[yoy_df["Mois"] == mois].sort_values("x_label")["x_label"].iloc[-1]
-                        is_gbv = metric == "GBV"
-                        y_val = entry["N"] if not pd.isna(entry.get("N")) else 0
-                        color_d = "green" if entry["Δ% N-1"] >= 0 else "red"
-                        prefix = "GBV" if is_gbv else ("HM" if metric == "Hors Marque" else "M")
+                        color_d = "green" if delta >= 0 else "red"
                         fig_jf.add_annotation(
-                            x=x_n,
-                            y=y_val,
-                            text=f"<b>{prefix} {entry['Δ% N-1']:+.1f}%</b>",
-                            showarrow=True,
-                            arrowhead=2, arrowsize=0.8,
-                            ax=30, ay=-30 if is_gbv else -50,
-                            yref="y2" if is_gbv else "y",
-                            font=dict(size=10, color=color_d),
+                            x=m, y=v_n,
+                            text=f"<b>{delta:+.1f}%</b>",
+                            showarrow=False,
+                            font=dict(size=13, color=color_d),
+                            yshift=16,
+                        )
+
+                    # GBV N-1 → N en annotation sous chaque groupe
+                    for m in mois_labels:
+                        gbv_n1 = n1_rows.loc[m, "GBV"] if "GBV" in n1_rows.columns else np.nan
+                        gbv_n  = n_rows.loc[m, "GBV"]  if "GBV" in n_rows.columns  else np.nan
+                        if pd.isna(gbv_n1) or pd.isna(gbv_n):
+                            continue
+                        delta_gbv = (gbv_n / gbv_n1 - 1) * 100 if gbv_n1 else np.nan
+                        color_g = "green" if (not pd.isna(delta_gbv) and delta_gbv >= 0) else "red"
+                        delta_txt = f" ({delta_gbv:+.1f}%)" if not pd.isna(delta_gbv) else ""
+                        fig_jf.add_annotation(
+                            x=m, y=0,
+                            text=f"GBV : {gbv_n1:,.0f} → {gbv_n:,.0f}{delta_txt}".replace(",", "\u202f"),
+                            showarrow=False,
+                            font=dict(size=10, color=color_g),
+                            yshift=-36,
+                            yref="paper" if False else "y",
                         )
 
                     fig_jf.update_layout(
-                        barmode="stack", plot_bgcolor="white", height=560,
+                        barmode="group",
+                        plot_bgcolor="white",
+                        height=520,
+                        margin=dict(b=80),
+                        yaxis_title="Clics SEO (HM + Marque)",
+                        legend=dict(orientation="h", y=-0.12),
+                        title="Déc / Jan / Fév — Total clics N-1 vs N",
                         hovermode="x unified",
-                        legend=dict(orientation="h", y=-0.15),
-                        title="Déc / Jan / Fév — Clics HM + Marque & GBV (N-1 vs N)",
-                        xaxis=dict(categoryorder="array", categoryarray=order),
                     )
-                    fig_jf.update_yaxes(title_text="Clics SEO (empilés)", secondary_y=False)
-                    fig_jf.update_yaxes(title_text="GBV (€)", secondary_y=True)
                     st.plotly_chart(fig_jf, use_container_width=True)
 
                 # Scatter côte à côte : GBV vs HM | GBV vs Marque
