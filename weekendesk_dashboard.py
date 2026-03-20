@@ -633,6 +633,92 @@ with tab3:
                     fig_gbv_time.update_yaxes(title_text="GBV (€)", secondary_y=True)
                     st.plotly_chart(fig_gbv_time, use_container_width=True)
 
+                # ── Janvier & Février — comparaison N-1 ─────────────────────
+                jan_feb_keys = {
+                    "Jan-25": "Jan-26", "Feb-25": "Feb-26",
+                }
+                rows_yoy = []
+                for key_25, key_26 in jan_feb_keys.items():
+                    for year_key, year_label in [(key_25, "2025"), (key_26, "2026")]:
+                        row = merged_df[merged_df["date_key"] == year_key]
+                        if row.empty:
+                            continue
+                        r = row.iloc[0]
+                        month_label = "Janvier" if "Jan" in year_key else "Février"
+                        rows_yoy.append({
+                            "Mois": month_label,
+                            "Année": year_label,
+                            "Clé": year_key,
+                            "Hors Marque": r.get("hm_clicks", np.nan),
+                            "Marque":      r.get("m_clicks",  np.nan),
+                            "GBV":         r.get("GBV",        np.nan),
+                        })
+
+                if rows_yoy:
+                    yoy_df = pd.DataFrame(rows_yoy)
+                    # Calcul des variations N-1 par mois
+                    yoy_summary = []
+                    for mois in ["Janvier", "Février"]:
+                        sub_m = yoy_df[yoy_df["Mois"] == mois].set_index("Année")
+                        if "2025" not in sub_m.index or "2026" not in sub_m.index:
+                            continue
+                        for col, label in [("Hors Marque", "HM"), ("Marque", "M"), ("GBV", "GBV")]:
+                            v25 = sub_m.loc["2025", col]
+                            v26 = sub_m.loc["2026", col]
+                            delta = (v26 / v25 - 1) * 100 if v25 else np.nan
+                            yoy_summary.append({
+                                "Mois": mois, "Métrique": col,
+                                "2025": v25, "2026": v26, "Δ% N-1": delta
+                            })
+
+                    st.markdown("#### 📅 Janvier & Février — comparaison N-1 (2025 vs 2026)")
+
+                    # Graphique barres groupées : HM, Marque, GBV × mois × année
+                    fig_jf = make_subplots(
+                        rows=1, cols=3,
+                        subplot_titles=["Clics Hors Marque", "Clics Marque", "GBV (€)"],
+                        shared_yaxes=False,
+                    )
+                    palette = {"2025": "#aec7e8", "2026": BRAND_ORANGE}
+                    metrics_cols = ["Hors Marque", "Marque", "GBV"]
+                    shown = set()
+                    for col_idx, metric in enumerate(metrics_cols, start=1):
+                        for annee, color in palette.items():
+                            sub_a = yoy_df[yoy_df["Année"] == annee]
+                            show_leg = annee not in shown
+                            shown.add(annee)
+                            fig_jf.add_trace(go.Bar(
+                                x=sub_a["Mois"],
+                                y=sub_a[metric],
+                                name=annee,
+                                marker_color=color,
+                                legendgroup=annee,
+                                showlegend=show_leg,
+                                text=[f"{v:,.0f}".replace(",", "\u202f") for v in sub_a[metric]],
+                                textposition="outside",
+                            ), row=1, col=col_idx)
+                        # Annotations Δ% N-1
+                        for entry in yoy_summary:
+                            if entry["Métrique"] != metric or pd.isna(entry["Δ% N-1"]):
+                                continue
+                            color_d = "green" if entry["Δ% N-1"] >= 0 else "red"
+                            fig_jf.add_annotation(
+                                x=entry["Mois"],
+                                y=max(entry["2025"], entry["2026"]),
+                                text=f"<b>{entry['Δ% N-1']:+.1f}%</b>",
+                                showarrow=False,
+                                font=dict(size=11, color=color_d),
+                                yshift=32,
+                                row=1, col=col_idx,
+                            )
+
+                    fig_jf.update_layout(
+                        barmode="group", plot_bgcolor="white", height=520,
+                        legend=dict(orientation="h", y=-0.15),
+                        title="Janvier & Février 2025 vs 2026 — Clics HM, Marque & GBV",
+                    )
+                    st.plotly_chart(fig_jf, use_container_width=True)
+
                 # Scatter côte à côte : GBV vs HM | GBV vs Marque
                 col_left, col_right = st.columns(2)
                 for col_ui, click_col, label, color in [
