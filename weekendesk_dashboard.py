@@ -98,8 +98,8 @@ MONTH_MAP = {"Jan":1,"Feb":2,"Mar":3,"Apr":4,"May":5,"Jun":6,
 
 BRAND_ORANGE = "#FF6B00"
 BRAND_BLUE   = "#1E3A5F"
-COLOR_NB     = "#FF6B00"   # orange = non-brand
-COLOR_B      = "#2ca02c"   # green  = brand
+COLOR_NB     = "#1f77b4"   # blue  = non-brand
+COLOR_B      = "#d62728"   # red   = brand
 PARTIAL_KEY  = "Mar-26"
 
 DELTA_MAP = {
@@ -344,7 +344,7 @@ with tab1:
                                         values="nb_clicks", aggfunc="first")
     nb_pivot.columns = MONTH_LABELS[:len(nb_pivot.columns)]
     fig_nb = px.imshow(nb_pivot, text_auto=True, aspect="auto",
-                       color_continuous_scale=[[0,"#fff"],[1, BRAND_ORANGE]],
+                       color_continuous_scale=[[0,"#fff"],[1, COLOR_NB]],
                        labels=dict(color="Non-Brand Clicks"))
     fig_nb.update_traces(texttemplate="%{z:,.0f}")
     fig_nb.update_layout(height=200 + 80*len(nb_pivot))
@@ -357,6 +357,7 @@ with tab1:
     fig_bp = px.imshow(b_pivot, text_auto=True, aspect="auto",
                        color_continuous_scale=[[0,"#fff"],[1, COLOR_B]],
                        labels=dict(color="Brand Clicks"))
+
     fig_bp.update_traces(texttemplate="%{z:,.0f}")
     fig_bp.update_layout(height=200 + 80*len(b_pivot))
     st.plotly_chart(fig_bp, use_container_width=True)
@@ -680,20 +681,20 @@ with tab3:
                         name="N-1 Non-Brand",
                         x=month_labels, y=nb_n1_vals,
                         offsetgroup="n1",
-                        marker_color="#FFB37A",
+                        marker_color="#aec7e8",
                         text=[fmt_k(v) for v in nb_n1_vals],
                         textposition="inside",
-                        textfont=dict(size=11, color="#7a3800"),
+                        textfont=dict(size=11, color="#0d3b6e"),
                         hovertemplate="<b>%{x} N-1 Non-Brand</b><br>%{y:,.0f}<extra></extra>",
                     ))
                     fig_jf.add_trace(go.Bar(
                         name="N-1 Brand",
                         x=month_labels, y=b_n1_vals,
                         offsetgroup="n1",
-                        marker_color="#98D8A0",
+                        marker_color="#f4a3a3",
                         text=[fmt_k(v) for v in b_n1_vals],
                         textposition="inside",
-                        textfont=dict(size=11, color="#1a5c2a"),
+                        textfont=dict(size=11, color="#7a0000"),
                         hovertemplate="<b>%{x} N-1 Brand</b><br>%{y:,.0f}<extra></extra>",
                     ))
                     fig_jf.add_trace(go.Bar(
