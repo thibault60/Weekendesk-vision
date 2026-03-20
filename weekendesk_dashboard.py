@@ -742,10 +742,10 @@ with tab3:
                         delta_txt = f" ({delta_gbv:+.1f}%)" if not pd.isna(delta_gbv) else ""
                         fig_jf.add_annotation(
                             x=m, y=0,
-                            text=f"GBV: {gbv_n1:,.0f} → {gbv_n:,.0f}{delta_txt}".replace(",", "\u202f"),
+                            text=f"<b>GBV: {gbv_n1:,.0f} → {gbv_n:,.0f}{delta_txt}</b>".replace(",", "\u202f"),
                             showarrow=False,
-                            font=dict(size=10, color=color_g),
-                            yshift=-36,
+                            font=dict(size=14, color=color_g),
+                            yshift=-44,
                             yref="y",
                         )
 
